@@ -6,7 +6,54 @@
 
 ### Overview
 
-**openclaw-satori-channel** is an [OpenClaw](https://openclaw.dev) channel plugin that connects your AI agent to any chat platform supported by the [Satori Protocol](https://satori.chat/) — including QQ (OneBot), Telegram, Discord, LINE, and more.
+**openclaw-satori-channel** is an [OpenClaw](https://openclaw.dev) channel plugin that connects your AI agent to any chat platform supported by the [Satori Protocol](https://satori.chat/) — including QQ (OneBot), Telegram, Discord, Feishu, LINE, and more.
+
+The typical deployment uses [Koishi](https://koishi.chat/) as the intermediary: Koishi connects to your chat platforms via their respective adapters, then exposes all connected bots through the [`@koishijs/plugin-server-satori`](https://koishi.chat/zh-CN/plugins/develop/server-satori.html) plugin as a unified Satori endpoint. OpenClaw then connects to that endpoint.
+
+### How It Works
+
+```
+QQ / Feishu / Telegram / ...
+        ↓  (platform adapters)
+    Koishi instance
+        ↓  (@koishijs/plugin-server-satori)
+  Satori Protocol endpoint  (ws://localhost:5140/satori/v1/events)
+        ↓
+  openclaw-satori-channel
+        ↓
+     OpenClaw AI Agent
+```
+
+### Deployment Flow
+
+**Step 1 — Install Koishi**
+
+Follow the [Koishi installation guide](https://koishi.chat/en-US/manual/starter/) to set up a Koishi instance.
+
+**Step 2 — Add platform adapters**
+
+In the Koishi plugin marketplace, install and configure the adapters for your target platforms, for example:
+- `adapter-onebot` for QQ
+- `adapter-feishu` for Feishu / Lark
+- `adapter-telegram` for Telegram
+- `adapter-discord` for Discord
+
+**Step 3 — Enable the Satori server plugin**
+
+In Koishi's plugin page, install and enable `@koishijs/plugin-server-satori`. Configure its `path` setting (e.g. `/satori`). This exposes all connected bots as a Satori protocol endpoint at:
+
+```
+WebSocket:  ws://localhost:5140/satori/v1/events
+HTTP API:   http://localhost:5140/satori/v1/
+```
+
+> The default Koishi port is `5140`. The path must match the `path` field in your OpenClaw account config.
+
+**Step 4 — Configure OpenClaw**
+
+Add the Satori channel to your `openclaw.json` and configure permissions to suit your needs (see [Configuration](#configuration) below).
+
+---
 
 ### Features
 
@@ -22,7 +69,7 @@
 
 - [OpenClaw](https://openclaw.dev) `>= 2026.0.0`
 - Node.js `>= 18.0.0`
-- A running [Satori Protocol](https://satori.chat/) server (e.g. [Koishi](https://koishi.chat/))
+- A running [Satori Protocol](https://satori.chat/) server — [Koishi](https://koishi.chat/) with [`@koishijs/plugin-server-satori`](https://koishi.chat/zh-CN/plugins/develop/server-satori.html) is recommended
 
 ### Installation
 
@@ -44,7 +91,7 @@ Place this plugin in your OpenClaw plugins directory and register it in `opencla
 
 ### Configuration
 
-Add a `channels.satori` section to your `openclaw.json`:
+Add a `channels.satori` section to your `openclaw.json`. **It is recommended to configure the permission fields** (`groupPolicy`, `groupAllowFrom`, `requireMention`) to control who can interact with the bot.
 
 ```json
 {
@@ -61,7 +108,7 @@ Add a `channels.satori` section to your `openclaw.json`:
           "selfId": "123456789",
           "token": "",
           "groupPolicy": "allowlist",
-          "groupAllowFrom": ["987654321"],
+          "groupAllowFrom": ["your_qq_number"],
           "requireMention": true
         }
       }
@@ -70,16 +117,20 @@ Add a `channels.satori` section to your `openclaw.json`:
 }
 ```
 
+> The `path` value must match the `path` configured in `@koishijs/plugin-server-satori`.
+> The `platform` value must match the platform identifier used by Koishi (e.g. `"onebot"`, `"feishu"`, `"telegram"`).
+> The `selfId` is the bot's own user ID on the platform.
+
 #### Account Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `host` | string | `"localhost"` | Satori server host |
 | `port` | number | `5140` | Satori server port |
-| `path` | string | `""` | Base path prefix, e.g. `"/satori"` |
-| `platform` | string | `"unknown"` | Platform identifier, e.g. `"onebot"`, `"telegram"` |
+| `path` | string | `""` | Base path prefix, must match Koishi satori-server `path` |
+| `platform` | string | `"unknown"` | Platform identifier, e.g. `"onebot"`, `"feishu"`, `"telegram"` |
 | `selfId` | string | — | Bot's own user ID on the platform |
-| `token` | string | — | Bearer token for Satori server authentication |
+| `token` | string | — | Bearer token for Satori server authentication (if configured) |
 | `enabled` | boolean | `true` | Enable or disable this account |
 | `allowFrom` | string[] | — | Sender IDs allowed for DMs (and group fallback) |
 | `defaultTo` | string | — | Default channel ID for outbound messages |
@@ -89,7 +140,7 @@ Add a `channels.satori` section to your `openclaw.json`:
 
 ### Permission System
 
-The plugin implements a three-gate permission system:
+The plugin implements a three-gate permission system. **Users are responsible for configuring these to match their security requirements.**
 
 **Gate 1 — DM allowFrom**
 - If `allowFrom` is set, only listed sender IDs can interact via DM.
@@ -97,7 +148,7 @@ The plugin implements a three-gate permission system:
 
 **Gate 2 — Group policy**
 - `"disabled"`: All group messages are dropped.
-- `"allowlist"` *(default)*: Only senders in `groupAllowFrom` (or `allowFrom` as fallback) are processed. Empty list drops all group messages.
+- `"allowlist"` *(default)*: Only senders in `groupAllowFrom` (or `allowFrom` as fallback) are processed. An empty list drops all group messages.
 - `"open"`: All group messages are processed regardless of sender.
 
 **Gate 3 — Mention gating**
@@ -106,9 +157,10 @@ The plugin implements a three-gate permission system:
 
 ### References
 
+- [Koishi satori-server plugin](https://koishi.chat/zh-CN/plugins/develop/server-satori.html)
 - [Satori Protocol Specification](https://satori.chat/en-US/protocol/)
 - [OpenClaw Documentation](https://openclaw.dev)
 
 ### License
 
-MIT
+MIT — [Doiiars](https://github.com/DoiiarX)
