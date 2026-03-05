@@ -19,7 +19,7 @@
     "chat",
     "protocol"
   ],
-  "author": "DoiiarX",
+  "author": "Doiiars <doiiars@qq.com>",
   "license": "MIT",
   "dependencies": {
     "ws": "^8.16.0"
