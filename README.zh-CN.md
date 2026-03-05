@@ -138,6 +138,31 @@ HTTP API:   http://localhost:5140/satori/v1/
 | `groupAllowFrom` | string[] | — | 群内允许的发送者 ID（为空时回退到 `allowFrom`） |
 | `requireMention` | boolean | `true` | 为 `true` 时，群内只有 @Bot 才会回复 |
 
+### 会话 Key 格式
+
+每个会话由一个 agent 作用域的 session key 标识，格式如下：
+
+```
+agent:main:satori-channel:{platform}:{chatType}:{peerId}
+```
+
+| 段 | 可选值 | 说明 |
+|----|--------|------|
+| `platform` | `onebot`、`telegram`、`feishu`… | 与账号配置中的 `platform` 字段一致 |
+| `chatType` | `direct`、`group` | `direct` 为私聊，`group` 为群聊/频道 |
+| `peerId` | 发送者 ID（私聊）/ 频道 ID（群组） | 会话对端的唯一标识符 |
+
+示例：
+
+```
+agent:main:satori-channel:onebot:direct:100000001
+agent:main:satori-channel:onebot:group:200000001
+agent:main:satori-channel:telegram:direct:100000001
+agent:main:satori-channel:telegram:group:200000001
+```
+
+`platform` 段的作用是：当同一个 Satori 端点连接了多个平台账号时，区分来自不同平台的会话。
+
 ### 权限系统
 
 插件实现了三道权限闸门。**用户需自行根据安全需求配置这些字段。**

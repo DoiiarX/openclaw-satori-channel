@@ -138,6 +138,31 @@ Add a `channels.satori` section to your `openclaw.json`. **It is recommended to 
 | `groupAllowFrom` | string[] | — | Sender IDs allowed in groups (falls back to `allowFrom`) |
 | `requireMention` | boolean | `true` | If `true`, bot only replies in groups when directly @mentioned |
 
+### Session Key Format
+
+Each conversation is identified by an agent-scoped session key in the format:
+
+```
+agent:main:satori-channel:{platform}:{chatType}:{peerId}
+```
+
+| Segment | Values | Description |
+|---------|--------|-------------|
+| `platform` | `onebot`, `telegram`, `feishu`, … | Matches the `platform` field in your account config |
+| `chatType` | `direct`, `group` | `direct` for private messages, `group` for group/channel messages |
+| `peerId` | sender ID (DM) / channel ID (group) | Unique identifier of the conversation peer |
+
+Examples:
+
+```
+agent:main:satori-channel:onebot:direct:100000001
+agent:main:satori-channel:onebot:group:200000001
+agent:main:satori-channel:telegram:direct:100000001
+agent:main:satori-channel:telegram:group:200000001
+```
+
+The `platform` segment disambiguates sessions when multiple platform accounts are connected through the same Satori endpoint.
+
 ### Permission System
 
 The plugin implements a three-gate permission system. **Users are responsible for configuring these to match their security requirements.**
