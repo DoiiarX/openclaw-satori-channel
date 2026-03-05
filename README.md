@@ -6,7 +6,7 @@
 
 ### Overview
 
-**openclaw-satori-channel** is an [OpenClaw](https://openclaw.dev) channel plugin that connects your AI agent to any chat platform supported by the [Satori Protocol](https://satori.chat/) — including QQ (OneBot), Telegram, Discord, Feishu, LINE, and more.
+**openclaw-satori-channel** is an [OpenClaw](https://openclaw.dev) channel plugin that connects your AI agent to any chat platform supported by the [Satori Protocol](https://satori.chat/) — including QQ ([OneBot](https://onebot.dev/)), Telegram, Discord, Feishu, LINE, and more.
 
 The typical deployment uses [Koishi](https://koishi.chat/) as the intermediary: Koishi connects to your chat platforms via their respective adapters, then exposes all connected bots through the [`@koishijs/plugin-server-satori`](https://koishi.chat/zh-CN/plugins/develop/server-satori.html) plugin as a unified Satori endpoint. OpenClaw then connects to that endpoint.
 
@@ -33,7 +33,7 @@ Follow the [Koishi installation guide](https://koishi.chat/en-US/manual/starter/
 **Step 2 — Add platform adapters**
 
 In the Koishi plugin marketplace, install and configure the adapters for your target platforms, for example:
-- `adapter-onebot` for QQ
+- `adapter-onebot` for QQ (via [OneBot](https://onebot.dev/) protocol)
 - `adapter-feishu` for Feishu / Lark
 - `adapter-telegram` for Telegram
 - `adapter-discord` for Discord

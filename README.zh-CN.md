@@ -6,7 +6,7 @@
 
 ### 概述
 
-**openclaw-satori-channel** 是一个 [OpenClaw](https://openclaw.dev) 频道插件，通过 [Satori 协议](https://satori.chat/zh-CN/) 将你的 AI Agent 接入任意聊天平台，包括 QQ（OneBot）、Telegram、Discord、飞书、LINE 等。
+**openclaw-satori-channel** 是一个 [OpenClaw](https://openclaw.dev) 频道插件，通过 [Satori 协议](https://satori.chat/zh-CN/) 将你的 AI Agent 接入任意聊天平台，包括 QQ（[OneBot](https://onebot.dev/)）、Telegram、Discord、飞书、LINE 等。
 
 典型部署方式是以 [Koishi](https://koishi.chat/) 作为中间层：Koishi 通过各平台适配器连接聊天平台，再通过 [`@koishijs/plugin-server-satori`](https://koishi.chat/zh-CN/plugins/develop/server-satori.html) 插件将所有已连接的 Bot 统一暴露为 Satori 协议端点，OpenClaw 再连接到该端点。
 
@@ -33,7 +33,7 @@ QQ / 飞书 / Telegram / ...
 **第二步 — 添加平台适配器**
 
 在 Koishi 插件市场中安装并配置目标平台的适配器，例如：
-- `adapter-onebot` — QQ
+- `adapter-onebot` — QQ（[OneBot](https://onebot.dev/) 协议）
 - `adapter-feishu` — 飞书 / Lark
 - `adapter-telegram` — Telegram
 - `adapter-discord` — Discord
