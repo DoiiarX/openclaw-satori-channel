@@ -170,12 +170,11 @@ export async function handleSatoriEvent(
   const bodyText = extractTextFromContent(message.content);
   const mediaUrl = extractMediaUrl(message.content);
 
-  // ── Session key ────────────────────────────────────────────────────────────
-  const sessionKey = isDirect
-    ? `${accountId}:${senderId}`
-    : guild
-    ? `${accountId}:${guild.id}:${channelId}`
-    : `${accountId}:${channelId}`;
+  // ── Session key (agent-scoped, includes direct/group marker for UI) ────────
+  // Mirror Telegram's pattern: surface prefix is the channel name ("satori-channel"),
+  // NOT the underlying platform protocol (e.g. "onebot").
+  const peerId = (isDirect ? senderId : channelId).toLowerCase();
+  const sessionKey = `agent:main:satori-channel:${chatType}:${peerId}`;
 
   // ── Quote / reply context ──────────────────────────────────────────────────
   const quote = message.quote;
@@ -213,7 +212,9 @@ export async function handleSatoriEvent(
     BodyForAgent: bodyText,
     RawBody: bodyText,
     CommandBody: bodyText,
-    From: `${account.platform}:${senderId}`,
+    From: isDirect
+      ? `satori-channel:direct:${senderId}`
+      : `satori-channel:group:${channelId}`,
     To: channelId,
     SessionKey: sessionKey,
     AccountId: accountId,
