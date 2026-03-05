@@ -143,17 +143,43 @@ HTTP API:   http://localhost:5140/satori/v1/
 插件实现了三道权限闸门。**用户需自行根据安全需求配置这些字段。**
 
 **闸门 1 — 私聊 allowFrom**
-- 设置 `allowFrom` 后，只有列表中的发送者才能通过私聊触发 Bot。
-- 填写 `"*"` 则对所有人开放。
+
+只允许特定用户私聊 Bot：
+```json
+{ "allowFrom": ["111222333"] }
+```
+对所有人开放私聊：
+```json
+{ "allowFrom": ["*"] }
+```
 
 **闸门 2 — 群组策略**
-- `"disabled"`：丢弃所有群消息。
-- `"allowlist"`（默认）：只处理 `groupAllowFrom`（或回退到 `allowFrom`）中的发送者。列表为空时丢弃所有群消息。
-- `"open"`：处理所有群消息，不限发送者。
+
+只响应群内特定发送者（`"allowlist"` 为默认值）：
+```json
+{ "groupPolicy": "allowlist", "groupAllowFrom": ["111222333"] }
+```
+响应群内所有人：
+```json
+{ "groupPolicy": "open" }
+```
+忽略所有群消息：
+```json
+{ "groupPolicy": "disabled" }
+```
 
 **闸门 3 — @提及门控**
-- `requireMention: true`（默认）时，Bot 在群内只有被 @ 时才会回复。
-- 例外：在白名单中的发送者（`commandAuthorized`）不受此限制。
+
+只在被 @ 时才回复（默认行为）：
+```json
+{ "requireMention": true }
+```
+无需 @ 也回复所有消息：
+```json
+{ "requireMention": false }
+```
+
+> 注意：`groupAllowFrom` 白名单中的发送者即使在 `requireMention: true` 时也无需 @ 即可触发 Bot。
 
 ### 相关链接
 

@@ -143,17 +143,43 @@ Add a `channels.satori` section to your `openclaw.json`. **It is recommended to 
 The plugin implements a three-gate permission system. **Users are responsible for configuring these to match their security requirements.**
 
 **Gate 1 — DM allowFrom**
-- If `allowFrom` is set, only listed sender IDs can interact via DM.
-- Use `"*"` to allow everyone.
+
+Only allow specific users to DM the bot:
+```json
+{ "allowFrom": ["111222333"] }
+```
+Allow everyone:
+```json
+{ "allowFrom": ["*"] }
+```
 
 **Gate 2 — Group policy**
-- `"disabled"`: All group messages are dropped.
-- `"allowlist"` *(default)*: Only senders in `groupAllowFrom` (or `allowFrom` as fallback) are processed. An empty list drops all group messages.
-- `"open"`: All group messages are processed regardless of sender.
+
+Only reply to specific senders in groups (`"allowlist"` is the default):
+```json
+{ "groupPolicy": "allowlist", "groupAllowFrom": ["111222333"] }
+```
+Reply to all senders in groups:
+```json
+{ "groupPolicy": "open" }
+```
+Ignore all group messages:
+```json
+{ "groupPolicy": "disabled" }
+```
 
 **Gate 3 — Mention gating**
-- If `requireMention: true` *(default)*, the bot only replies in groups when directly @mentioned.
-- Exception: senders in the allowlist (`commandAuthorized`) bypass the mention requirement.
+
+Only reply when the bot is directly @mentioned (default behavior):
+```json
+{ "requireMention": true }
+```
+Reply to all messages without requiring a mention:
+```json
+{ "requireMention": false }
+```
+
+> Note: senders listed in `groupAllowFrom` bypass the mention requirement even when `requireMention: true`.
 
 ### References
 
