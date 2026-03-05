@@ -1,0 +1,26 @@
+{
+  "id": "satori-channel",
+  "version": "1.0.0",
+  "name": "Satori Protocol Channel",
+  "description": "Satori Protocol Channel Plugin for OpenClaw - supports Telegram, Discord, QQ and other platforms via Satori SDK",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "author": "DoiiarX",
+  "license": "MIT",
+  "keywords": ["satori", "channel", "bot", "chat", "protocol"],
+  "engines": {
+    "openclaw": ">=2026.0.0",
+    "node": ">=18.0.0"
+  },
+  "channels": ["satori"],
+  "configPrefix": "channels.satori",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "reload": {
+    "configPrefixes": ["channels.satori"],
+    "noopPrefixes": []
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@openclaw/satori-channel",
+  "version": "1.0.0",
+  "description": "Satori Protocol Channel Plugin for OpenClaw",
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "watch": "tsc --noEmit --watch",
+    "clean": "rm -rf dist.disabled"
+  },
+  "keywords": [
+    "openclaw",
+    "satori",
+    "channel",
+    "bot",
+    "chat",
+    "protocol"
+  ],
+  "author": "DoiiarX",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
