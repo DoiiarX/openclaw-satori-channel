@@ -4,6 +4,7 @@ import { emptyPluginConfigSchema, buildChannelConfigSchema } from "openclaw/plug
 import { satoriConfigAdapter } from "./src/config.js";
 import { satoriGatewayAdapter } from "./src/gateway.js";
 import { satoriOutboundAdapter } from "./src/outbound.js";
+import { satoriMessageActions } from "./src/actions.js";
 import type { SatoriAccount } from "./src/types.js";
 
 // ─── Channel config schema (Zod → JSON Schema for UI) ─────────────────────────
@@ -23,6 +24,13 @@ const SatoriAccountSchema = z.object({
   requireMention: z.boolean().optional(),
 });
 
+const SatoriActionsSchema = z.object({
+  reactions: z.boolean().optional(),
+  messages: z.boolean().optional(),
+  memberInfo: z.boolean().optional(),
+  channelInfo: z.boolean().optional(),
+});
+
 const SatoriChannelSchema = z.object({
   enabled: z.boolean().optional(),
   defaultAccount: z.string().optional(),
@@ -32,6 +40,7 @@ const SatoriChannelSchema = z.object({
   groupPolicy: z.enum(["open", "allowlist", "disabled"]).optional(),
   groupAllowFrom: z.array(z.union([z.string(), z.number()])).optional(),
   requireMention: z.boolean().optional(),
+  actions: SatoriActionsSchema.optional(),
 });
 
 // ─── Default runtime snapshot (initial state before gateway starts) ───────────
@@ -71,8 +80,9 @@ const satoriChannelPlugin: ChannelPlugin<SatoriAccount> = {
     chatTypes: ["direct", "group"],
     media: true,
     reply: true,
-    edit: false,
-    unsend: false,
+    edit: true,
+    unsend: true,
+    reactions: true,
   },
 
   reload: {
@@ -87,6 +97,40 @@ const satoriChannelPlugin: ChannelPlugin<SatoriAccount> = {
   config: satoriConfigAdapter,
   outbound: satoriOutboundAdapter,
   gateway: satoriGatewayAdapter,
+  actions: satoriMessageActions,
+
+  // ── Directory (known peers / groups from config) ───────────────────────────
+  directory: {
+    self: async () => null,
+
+    listPeers: async ({ cfg, accountId, query, limit }) => {
+      const account = satoriConfigAdapter.resolveAccount(cfg, accountId);
+      const q = query?.trim().toLowerCase() ?? "";
+      const ids = new Set<string>();
+      for (const v of account.allowFrom ?? []) {
+        const s = String(v).trim();
+        if (s && s !== "*") ids.add(s);
+      }
+      return Array.from(ids)
+        .filter(id => !q || id.includes(q))
+        .slice(0, limit && limit > 0 ? limit : undefined)
+        .map(id => ({ kind: "user" as const, id }));
+    },
+
+    listGroups: async ({ cfg, accountId, query, limit }) => {
+      const account = satoriConfigAdapter.resolveAccount(cfg, accountId);
+      const q = query?.trim().toLowerCase() ?? "";
+      const ids = new Set<string>();
+      for (const v of account.groupAllowFrom ?? []) {
+        const s = String(v).trim();
+        if (s && s !== "*") ids.add(s);
+      }
+      return Array.from(ids)
+        .filter(id => !q || id.includes(q))
+        .slice(0, limit && limit > 0 ? limit : undefined)
+        .map(id => ({ kind: "group" as const, id }));
+    },
+  },
 
   // ── Status adapter ───────────────────────────────────────────────────────────
   status: {
