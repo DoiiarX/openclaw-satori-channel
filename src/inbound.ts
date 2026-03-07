@@ -158,9 +158,12 @@ export async function handleSatoriEvent(
         log?.debug?.(`[satori:${accountId}] Group message dropped: groupPolicy=allowlist but groupAllowFrom is empty`);
         return;
       }
-      const allowed = effectiveList.includes("*") || effectiveList.includes(senderId);
+      // Check channelId (group ID), not senderId
+      const allowed = effectiveList.includes("*") ||
+        effectiveList.includes(channelId) ||
+        effectiveList.some(id => String(id) === channelId);
       if (!allowed) {
-        log?.debug?.(`[satori:${accountId}] Group message dropped: sender ${senderId} not in groupAllowFrom`);
+        log?.debug?.(`[satori:${accountId}] Group message dropped: channel ${channelId} not in groupAllowFrom`);
         return;
       }
     }
@@ -188,13 +191,10 @@ export async function handleSatoriEvent(
 
   // ── Gate 3: requireMention (groups only) ──────────────────────────────────
   // Compute CommandAuthorized before mention check so authorized senders bypass it
-  const groupAllowFrom = account.groupAllowFrom ?? [];
+  // Uses allowFrom (sender IDs), not groupAllowFrom (group/channel IDs)
   const allowFrom = account.allowFrom ?? [];
-  const effectiveAllowFrom = isDirect
-    ? allowFrom
-    : groupAllowFrom.length > 0 ? groupAllowFrom : allowFrom;
   const commandAuthorized =
-    effectiveAllowFrom.includes("*") || effectiveAllowFrom.includes(senderId);
+    allowFrom.includes("*") || allowFrom.includes(senderId);
 
   if (!isDirect && account.requireMention) {
     const selfId = account.selfId;
