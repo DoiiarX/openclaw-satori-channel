@@ -91,12 +91,12 @@ Place this plugin in your OpenClaw plugins directory and register it in `opencla
 
 ### Configuration
 
-Add a `channels.satori` section to your `openclaw.json`. **It is recommended to configure the permission fields** (`groupPolicy`, `groupAllowFrom`, `requireMention`) to control who can interact with the bot.
+Add a `channels.satori-channel` section to your `openclaw.json`. **It is recommended to configure the permission fields** (`groupPolicy`, `groupAllowFrom`, `requireMention`) to control who can interact with the bot.
 
 ```json
 {
   "channels": {
-    "satori": {
+    "satori-channel": {
       "enabled": true,
       "defaultAccount": "default",
       "accounts": {

@@ -91,12 +91,12 @@ HTTP API:   http://localhost:5140/satori/v1/
 
 ### 配置说明
 
-在 `openclaw.json` 中添加 `channels.satori` 配置节。**建议根据你的安全需求配置权限字段**（`groupPolicy`、`groupAllowFrom`、`requireMention`）以控制哪些用户可以与 Bot 交互。
+在 `openclaw.json` 中添加 `channels.satori-channel` 配置节。**建议根据你的安全需求配置权限字段**（`groupPolicy`、`groupAllowFrom`、`requireMention`）以控制哪些用户可以与 Bot 交互。
 
 ```json
 {
   "channels": {
-    "satori": {
+    "satori-channel": {
       "enabled": true,
       "defaultAccount": "default",
       "accounts": {

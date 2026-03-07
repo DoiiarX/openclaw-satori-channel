@@ -12,15 +12,15 @@
     "openclaw": ">=2026.0.0",
     "node": ">=18.0.0"
   },
-  "channels": ["satori"],
-  "configPrefix": "channels.satori",
+  "channels": ["satori-channel"],
+  "configPrefix": "channels.satori-channel",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
     "properties": {}
   },
   "reload": {
-    "configPrefixes": ["channels.satori"],
+    "configPrefixes": ["channels.satori-channel"],
     "noopPrefixes": []
   }
 }
