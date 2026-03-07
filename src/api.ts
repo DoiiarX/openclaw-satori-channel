@@ -28,24 +28,29 @@ export function buildApiBase(account: SatoriAccount): string {
 }
 
 /**
- * Satori GET request.
- * Throws on non-2xx responses.
+ * Satori query request (list/get operations).
+ * Satori protocol requires POST for ALL API endpoints, including queries.
+ * Parameters go in the JSON body, not URL query string.
  */
 export async function satoriGet(
   account: SatoriAccount,
   endpoint: string,
   query?: Record<string, string | number | undefined>
 ): Promise<unknown> {
-  const url = new URL(`${buildApiBase(account)}/${endpoint}`);
+  const body: Record<string, string | number> = {};
   if (query) {
     for (const [k, v] of Object.entries(query)) {
-      if (v != null) url.searchParams.set(k, String(v));
+      if (v != null) body[k] = v;
     }
   }
-  const res = await fetch(url.toString(), { headers: buildApiHeaders(account) });
+  const res = await fetch(`${buildApiBase(account)}/${endpoint}`, {
+    method: "POST",
+    headers: buildApiHeaders(account),
+    body: JSON.stringify(body),
+  });
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Satori ${endpoint} error ${res.status}: ${body}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`Satori ${endpoint} error ${res.status}: ${text}`);
   }
   return res.json().catch(() => ({}));
 }
