@@ -135,7 +135,10 @@ export async function handleSatoriEvent(
   if (isDirect) {
     const allowFrom = account.allowFrom;
     if (allowFrom && allowFrom.length > 0) {
-      const allowed = allowFrom.includes("*") || allowFrom.includes(senderId);
+      const allowed =
+        allowFrom.includes("*") ||
+        allowFrom.includes(senderId) ||
+        allowFrom.some(id => String(id) === senderId);
       if (!allowed) {
         log?.debug?.(`[satori:${accountId}] DM dropped: sender ${senderId} not in allowFrom`);
         return;
@@ -194,7 +197,9 @@ export async function handleSatoriEvent(
   // Uses allowFrom (sender IDs), not groupAllowFrom (group/channel IDs)
   const allowFrom = account.allowFrom ?? [];
   const commandAuthorized =
-    allowFrom.includes("*") || allowFrom.includes(senderId);
+    allowFrom.includes("*") ||
+    allowFrom.includes(senderId) ||
+    allowFrom.some(id => String(id) === senderId);
 
   if (!isDirect && account.requireMention) {
     const selfId = account.selfId;
