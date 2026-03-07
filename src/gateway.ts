@@ -1,8 +1,10 @@
 import WebSocket from "ws";
 import type { ChannelGatewayAdapter, ChannelGatewayContext } from "openclaw/plugin-sdk";
 import { handleSatoriEvent } from "./inbound.js";
+import { setAccountFeatures } from "./features.js";
+import { buildApiBase, buildApiHeaders } from "./api.js";
 import { SatoriOpcode } from "./types.js";
-import type { SatoriAccount, SatoriEvent, SatoriSignal } from "./types.js";
+import type { SatoriAccount, SatoriEvent, SatoriReadyBody, SatoriSignal } from "./types.js";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -159,6 +161,27 @@ export const satoriGatewayAdapter: ChannelGatewayAdapter<SatoriAccount> = {
                 lastConnectedAt: Date.now(),
                 lastError: null,
               });
+              // Seed features from READY body (fast path)
+              const readyBody = signal.body as SatoriReadyBody | undefined;
+              const readyFeatures = readyBody?.logins?.[0]?.features;
+              if (Array.isArray(readyFeatures) && readyFeatures.length > 0) {
+                setAccountFeatures(accountId, readyFeatures);
+              }
+              // Authoritative fetch via login.get (may return a superset)
+              fetch(`${buildApiBase(account)}/login.get`, {
+                method: "POST",
+                headers: buildApiHeaders(account),
+                body: "{}",
+              })
+                .then((r) => r.json())
+                .then((data: unknown) => {
+                  const features = (data as Record<string, unknown>)?.features;
+                  if (Array.isArray(features) && features.length > 0) {
+                    setAccountFeatures(accountId, features as string[]);
+                    log?.info(`[satori:${accountId}] Features: ${(features as string[]).join(", ")}`);
+                  }
+                })
+                .catch(() => {/* non-fatal */});
               log?.info(`[satori:${accountId}] Connected`);
               break;
             }

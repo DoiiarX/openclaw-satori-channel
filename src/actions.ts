@@ -10,6 +10,8 @@ import {
   type OpenClawConfig,
 } from "openclaw/plugin-sdk";
 import { resolveApiAccount, satoriGet, satoriPost } from "./api.js";
+import { hasFeature } from "./features.js";
+import { satoriConfigAdapter } from "./config.js";
 
 // ─── Actions config helper ─────────────────────────────────────────────────────
 // Reads from cfg.channels["satori-channel"].actions
@@ -40,28 +42,35 @@ function resolveChannelId(params: Record<string, unknown>): string {
 export const satoriMessageActions: ChannelMessageActionAdapter = {
   listActions: ({ cfg }): ChannelMessageActionName[] => {
     const gate = createActionGate(getActionsConfig(cfg));
+    const id = satoriConfigAdapter.defaultAccountId(cfg);
+    // Helper: config gate AND platform feature support
+    const supported = (configKey: keyof ReturnType<typeof getActionsConfig>, ...features: string[]) =>
+      gate(configKey, true) && features.every(f => hasFeature(id, f));
+
     const actions = new Set<ChannelMessageActionName>(["send"]);
-    // Reactions: react + list reactions — enabled by default
-    if (gate("reactions", true)) {
-      actions.add("react");
-      actions.add("reactions");
-    }
-    // Message ops: read history, edit, delete — enabled by default
-    if (gate("messages", true)) {
-      actions.add("read");
-      actions.add("edit");
+
+    // Reactions
+    if (supported("reactions", "reaction.create")) actions.add("react");
+    if (supported("reactions", "reaction.list")) actions.add("reactions");
+
+    // Message ops
+    if (supported("messages", "message.list")) actions.add("read");
+    if (supported("messages", "message.update")) actions.add("edit");
+    if (supported("messages", "message.delete")) {
       actions.add("delete");
       actions.add("unsend");
     }
-    // Member info — enabled by default
-    if (gate("memberInfo", true)) {
-      actions.add("member-info");
-    }
-    // Channel/guild info — enabled by default
-    if (gate("channelInfo", true)) {
-      actions.add("channel-info");
+
+    // Member info
+    if (supported("memberInfo", "guild.member.get")) actions.add("member-info");
+
+    // Channel/guild info
+    if (supported("channelInfo", "channel.get")) actions.add("channel-info");
+    // channel-list falls back to guild.list, so require either
+    if (gate("channelInfo", true) && (hasFeature(id, "channel.list") || hasFeature(id, "guild.list"))) {
       actions.add("channel-list");
     }
+
     return Array.from(actions);
   },
 
