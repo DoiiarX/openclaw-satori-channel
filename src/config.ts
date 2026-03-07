@@ -28,24 +28,24 @@ function normalizeAllowFrom(raw?: string | string[]): string[] | undefined {
   return arr.length > 0 ? arr : undefined;
 }
 
-function buildAccount(id: string, raw: SatoriAccountConfig): SatoriAccount {
-  const rawPath = raw.path ?? "";
+function buildAccount(id: string, raw: SatoriAccountConfig, root: SatoriAccountConfig): SatoriAccount {
+  const rawPath = raw.path ?? root.path ?? "";
   const normalizedPath = rawPath === "/" ? "" : rawPath.replace(/\/+$/, "");
 
   return {
     id,
-    host: raw.host ?? "localhost",
-    port: raw.port ?? 5140,
+    host: raw.host ?? root.host ?? "localhost",
+    port: raw.port ?? root.port ?? 5140,
     path: normalizedPath,
-    token: raw.token,
-    platform: raw.platform ?? "unknown",
-    selfId: raw.selfId,
+    token: raw.token ?? root.token,
+    platform: raw.platform ?? root.platform ?? "unknown",
+    selfId: raw.selfId ?? root.selfId,
     enabled: raw.enabled !== false,
-    allowFrom: normalizeAllowFrom(raw.allowFrom),
-    defaultTo: raw.defaultTo,
-    groupPolicy: raw.groupPolicy ?? "allowlist",
-    groupAllowFrom: normalizeAllowFrom(raw.groupAllowFrom),
-    requireMention: raw.requireMention !== false,
+    allowFrom: normalizeAllowFrom(raw.allowFrom ?? root.allowFrom),
+    defaultTo: raw.defaultTo ?? root.defaultTo,
+    groupPolicy: raw.groupPolicy ?? root.groupPolicy ?? "allowlist",
+    groupAllowFrom: normalizeAllowFrom(raw.groupAllowFrom ?? root.groupAllowFrom),
+    requireMention: raw.requireMention ?? root.requireMention ?? true,
   };
 }
 
@@ -71,10 +71,11 @@ export const satoriConfigAdapter: ChannelConfigAdapter<SatoriAccount> = {
   },
 
   resolveAccount(cfg: OpenClawConfig, accountId?: string | null): SatoriAccount {
+    const section = getChannelSection(cfg);
     const accounts = getRawAccounts(cfg);
     const id = resolveAccountId(cfg, accountId);
     const raw: SatoriAccountConfig = accounts[id] ?? {};
-    return buildAccount(id, raw);
+    return buildAccount(id, raw, section as SatoriAccountConfig);
   },
 
   defaultAccountId(cfg: OpenClawConfig): string {
