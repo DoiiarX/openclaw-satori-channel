@@ -94,7 +94,33 @@ export const satoriMessageActions: ChannelMessageActionAdapter = {
       return jsonResult({ ok: true, result });
     }
 
-    // All other actions need a channelId
+    // ── member-info ─────────────────────────────────────────────────────────
+    // mode="none": no target injected; guildId comes from params or is omitted
+    if (action === "member-info") {
+      const userId = readStringParam(params, "userId", { required: true });
+      const guildId = readStringParam(params, "guildId");
+      const result = await satoriGet(account, "guild.member.get", {
+        ...(guildId != null ? { guild_id: guildId } : {}),
+        user_id: userId,
+      });
+      return jsonResult(result);
+    }
+
+    // ── channel-list ─────────────────────────────────────────────────────────
+    // mode="none": no target injected; guildId from params or omitted (returns all guilds/channels)
+    if (action === "channel-list") {
+      const guildId = readStringParam(params, "guildId");
+      const next = readStringParam(params, "next");
+      const result = await satoriGet(account, "channel.list", {
+        ...(guildId != null ? { guild_id: guildId } : {}),
+        ...(next != null ? { next } : {}),
+      });
+      return jsonResult(result);
+    }
+
+    // All remaining actions need a channelId injected by the framework:
+    // mode="to" actions (react/reactions/read/edit/delete/unsend): framework sets args.to
+    // mode="channelId" actions (channel-info): framework sets args.channelId
     const channelId = resolveChannelId(params);
 
     // ── react ─────────────────────────────────────────────────────────────────
@@ -162,33 +188,11 @@ export const satoriMessageActions: ChannelMessageActionAdapter = {
       return jsonResult({ ok: true });
     }
 
-    // ── member-info ───────────────────────────────────────────────────────────
-    if (action === "member-info") {
-      const userId = readStringParam(params, "userId", { required: true });
-      // guildId defaults to channelId when not provided
-      const guildId = readStringParam(params, "guildId") ?? channelId;
-      const result = await satoriGet(account, "guild.member.get", {
-        guild_id: guildId,
-        user_id: userId,
-      });
-      return jsonResult(result);
-    }
-
-    // ── channel-info ──────────────────────────────────────────────────────────
+    // ── channel-info ─────────────────────────────────────────────────────────
+    // mode="channelId": framework injects args.channelId = target
     if (action === "channel-info") {
       const result = await satoriGet(account, "channel.get", {
         channel_id: channelId,
-      });
-      return jsonResult(result);
-    }
-
-    // ── channel-list ──────────────────────────────────────────────────────────
-    if (action === "channel-list") {
-      const guildId = readStringParam(params, "guildId") ?? channelId;
-      const next = readStringParam(params, "next");
-      const result = await satoriGet(account, "channel.list", {
-        guild_id: guildId,
-        ...(next != null ? { next } : {}),
       });
       return jsonResult(result);
     }
