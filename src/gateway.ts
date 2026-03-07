@@ -38,6 +38,27 @@ export const satoriGatewayAdapter: ChannelGatewayAdapter<SatoriAccount> = {
     let reconnectDelay = RECONNECT_BASE_MS;
     let reconnectAttempts = 0;
 
+    // ── Prefetch features via login.get before connecting ──────────────────────
+    // This ensures listActions() never runs with an empty feature cache.
+    try {
+      const r = await fetch(`${buildApiBase(account)}/login.get`, {
+        method: "POST",
+        headers: buildApiHeaders(account),
+        body: "{}",
+        signal: AbortSignal.timeout(5000),
+      });
+      if (r.ok) {
+        const data = await r.json() as Record<string, unknown>;
+        const features = data.features;
+        if (Array.isArray(features) && features.length > 0) {
+          setAccountFeatures(accountId, features as string[]);
+          log?.info(`[satori:${accountId}] Features (prefetch): ${(features as string[]).join(", ")}`);
+        }
+      }
+    } catch {
+      // Non-fatal: server may not be up yet; features will be populated on READY
+    }
+
     // ── Mark running ───────────────────────────────────────────────────────────
     ctx.setStatus({
       ...ctx.getStatus(),

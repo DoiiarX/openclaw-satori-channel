@@ -19,6 +19,6 @@ export function getAccountFeatures(accountId: string): Set<string> {
 
 export function hasFeature(accountId: string, feature: string): boolean {
   const cached = featureCache.get(accountId);
-  if (!cached) return true; // not yet connected; allow optimistically
+  if (!cached) return false; // features not yet known; deny until populated
   return cached.has(feature);
 }
