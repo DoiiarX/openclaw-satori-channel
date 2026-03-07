@@ -107,15 +107,25 @@ export const satoriMessageActions: ChannelMessageActionAdapter = {
     }
 
     // ── channel-list ─────────────────────────────────────────────────────────
-    // mode="none": no target injected; guildId from params or omitted (returns all guilds/channels)
+    // mode="none": no target injected.
+    // If guildId provided → channel.list (channels within that guild/group).
+    // If not provided → guild.list (all groups the bot is in), since channel.list
+    // requires guild_id and returns 500 without it (e.g. OneBot/QQ).
     if (action === "channel-list") {
       const guildId = readStringParam(params, "guildId");
       const next = readStringParam(params, "next");
-      const result = await satoriGet(account, "channel.list", {
-        ...(guildId != null ? { guild_id: guildId } : {}),
-        ...(next != null ? { next } : {}),
-      });
-      return jsonResult(result);
+      if (guildId != null) {
+        const result = await satoriGet(account, "channel.list", {
+          guild_id: guildId,
+          ...(next != null ? { next } : {}),
+        });
+        return jsonResult(result);
+      } else {
+        const result = await satoriGet(account, "guild.list", {
+          ...(next != null ? { next } : {}),
+        });
+        return jsonResult(result);
+      }
     }
 
     // All remaining actions need a channelId injected by the framework:
