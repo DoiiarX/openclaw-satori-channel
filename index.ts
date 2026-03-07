@@ -92,9 +92,20 @@ const satoriChannelPlugin: ChannelPlugin<SatoriAccount> = {
   status: {
     defaultRuntime,
 
+    async probeAccount({ account }: { account: SatoriAccount; timeoutMs: number; cfg: OpenClawConfig }): Promise<{ reachable: boolean }> {
+      try {
+        const url = `http://${account.host}:${account.port}${account.path}/v1`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        return { reachable: res.status < 500 };
+      } catch {
+        return { reachable: false };
+      }
+    },
+
     buildAccountSnapshot({
       account,
       runtime,
+      probe,
     }: {
       account: SatoriAccount;
       cfg: OpenClawConfig;
@@ -102,6 +113,7 @@ const satoriChannelPlugin: ChannelPlugin<SatoriAccount> = {
       probe?: unknown;
       audit?: unknown;
     }): ChannelAccountSnapshot {
+      const probeResult = probe as { reachable: boolean } | undefined;
       return {
         // Static account properties
         accountId: account.id,
@@ -111,6 +123,14 @@ const satoriChannelPlugin: ChannelPlugin<SatoriAccount> = {
         tokenSource: account.token ? "config" : undefined,
         mode: "websocket",
         allowFrom: account.allowFrom,
+        allowUnmentionedGroups: !account.requireMention,
+        // Extra fields read by the channels UI
+        ...(account.groupAllowFrom ? { groupAllowFrom: account.groupAllowFrom } : {}),
+        ...(account.groupPolicy ? { groupPolicy: account.groupPolicy } : {}),
+        ...(account.selfId ? { selfId: account.selfId } : {}),
+        ...(account.platform ? { platform: account.platform } : {}),
+        // Probe result
+        ...(probeResult != null ? { probe: probeResult } : {}),
 
         // Runtime-tracked fields (from ctx.setStatus in gateway/inbound)
         running: runtime?.running ?? false,
