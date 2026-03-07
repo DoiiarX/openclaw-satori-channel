@@ -9,7 +9,7 @@ import {
 } from "openclaw/plugin-sdk";
 import type { SatoriAccount, SatoriAccountConfig } from "./types.js";
 
-const CHANNEL_KEY = "satori";
+const CHANNEL_KEY = "satori-channel";
 
 // ─── Internal helpers ──────────────────────────────────────────────────────────
 

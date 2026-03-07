@@ -76,7 +76,7 @@ const satoriChannelPlugin: ChannelPlugin<SatoriAccount> = {
   },
 
   reload: {
-    configPrefixes: ["channels.satori"],
+    configPrefixes: ["channels.satori-channel"],
     noopPrefixes: [],
   },
 
