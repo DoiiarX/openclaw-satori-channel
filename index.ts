@@ -99,6 +99,28 @@ const satoriChannelPlugin: ChannelPlugin<SatoriAccount> = {
   gateway: satoriGatewayAdapter,
   actions: satoriMessageActions,
 
+  // ── Messaging (target normalization) ─────────────────────────────────────────
+  // Framework uses normalizeTarget before directory lookup and looksLikeId to
+  // decide whether to skip directory resolution entirely.
+  messaging: {
+    // Strip "private:USERID" → "USERID" so sendText gets a plain channel/user ID.
+    // Satori/OneBot accepts the numeric user ID directly as channel_id for DMs.
+    normalizeTarget: (raw: string): string | undefined => {
+      const trimmed = raw.trim();
+      const m = /^private:(.+)$/i.exec(trimmed);
+      if (m) return m[1].trim() || undefined;
+      return trimmed || undefined;
+    },
+    targetResolver: {
+      // Numeric-only strings are QQ user/group IDs — treat as explicit IDs,
+      // skip directory resolution.
+      looksLikeId: (raw: string, normalized?: string): boolean => {
+        return /^\d+$/.test((normalized ?? raw).trim());
+      },
+      hint: "Use a QQ number or group ID. DM targets: private:USERID",
+    },
+  },
+
   // ── Directory (known peers / groups from config) ───────────────────────────
   directory: {
     self: async () => null,
