@@ -112,11 +112,11 @@ export const satoriGatewayAdapter: ChannelGatewayAdapter<SatoriAccount> = {
           "abort",
           () => {
             if (pingTimer) clearInterval(pingTimer);
-            if (
-              ws.readyState !== WebSocket.CLOSED &&
-              ws.readyState !== WebSocket.CLOSING
-            ) {
-              ws.close(1000, "shutdown");
+            // terminate() destroys the socket immediately without waiting for
+            // the TCP close-frame handshake, so no open handles linger past
+            // this point and the event loop can exit cleanly.
+            if (ws.readyState !== WebSocket.CLOSED) {
+              ws.terminate();
             }
             settle("done");
           },
