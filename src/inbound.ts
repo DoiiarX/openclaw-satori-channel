@@ -346,7 +346,6 @@ export async function handleSatoriEvent(
   // ── Build content context ──────────────────────────────────────────────────
   // Check if image capability is available to decide placeholder format
   const preserveMediaUrls = !hasImageCapability(cfg);
-  const bodyText = extractTextFromContent(message.content, preserveMediaUrls);
   const allMedia = extractAllMedia(message.content);
   const mediaUrl = allMedia.length > 0 ? allMedia[0].url : undefined;
   const mediaType = allMedia.length > 0 ? allMedia[0].type : undefined;
@@ -368,6 +367,19 @@ export async function handleSatoriEvent(
 
     if (mediaPaths.length === 0) {
       mediaPaths = undefined;
+    }
+  }
+
+  // ── Build body text with local paths if available ─────────────────────────
+  let bodyText = extractTextFromContent(message.content, preserveMediaUrls);
+
+  // Replace URLs with local paths in placeholders when media was downloaded
+  if (preserveMediaUrls && mediaPaths && mediaPaths.length > 0) {
+    for (let i = 0; i < allMedia.length && i < mediaPaths.length; i++) {
+      if (mediaPaths[i]) {
+        // Replace URL with local path in the body text
+        bodyText = bodyText.replace(allMedia[i].url, mediaPaths[i]);
+      }
     }
   }
 
