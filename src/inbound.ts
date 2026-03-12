@@ -19,22 +19,60 @@ interface MsgContext {
 // ─── Content parsing ───────────────────────────────────────────────────────────
 
 /**
- * Strip Satori XML-like element tags to produce plain text suitable for the
- * agent prompt.  Rich elements (images, audio, video) are replaced with
- * human-readable placeholders that include the URL for MCP tool access.
+ * Check if image understanding is available (imageModel or media.image configured)
  */
-export function extractTextFromContent(content: string): string {
-  let text = content
-    // Media elements → readable placeholders with URLs for MCP tools
-    .replace(/<img\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[图片: $1]")
-    .replace(/<audio\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[语音: $1]")
-    .replace(/<video\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[视频: $1]")
-    .replace(/<file\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[文件: $1]")
-    // Fallback for media without src attribute
-    .replace(/<img\b[^>]*?\/>/gi, "[图片]")
-    .replace(/<audio\b[^>]*?\/>/gi, "[语音]")
-    .replace(/<video\b[^>]*?\/>/gi, "[视频]")
-    .replace(/<file\b[^>]*?\/>/gi, "[文件]")
+function hasImageCapability(cfg: any): boolean {
+  // Check if imageModel is configured
+  if (cfg?.agents?.defaults?.imageModel) {
+    return true;
+  }
+
+  // Check if media.image is enabled
+  if (cfg?.tools?.media?.image?.enabled !== false) {
+    // If explicitly enabled or has models configured
+    if (cfg?.tools?.media?.image?.enabled === true ||
+        cfg?.tools?.media?.image?.models?.length > 0 ||
+        cfg?.tools?.media?.models?.length > 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Strip Satori XML-like element tags to produce plain text suitable for the
+ * agent prompt. Rich elements (images, audio, video) are replaced with
+ * human-readable placeholders.
+ *
+ * @param content - Satori message content with XML tags
+ * @param preserveUrls - If true, include URLs in placeholders for MCP tool access
+ */
+export function extractTextFromContent(content: string, preserveUrls = false): string {
+  let text = content;
+
+  if (preserveUrls) {
+    // Include URLs in placeholders for MCP tools (when no native image capability)
+    text = text
+      .replace(/<img\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[图片: $1]")
+      .replace(/<audio\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[语音: $1]")
+      .replace(/<video\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[视频: $1]")
+      .replace(/<file\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[文件: $1]")
+      // Fallback for media without src attribute
+      .replace(/<img\b[^>]*?\/>/gi, "[图片]")
+      .replace(/<audio\b[^>]*?\/>/gi, "[语音]")
+      .replace(/<video\b[^>]*?\/>/gi, "[视频]")
+      .replace(/<file\b[^>]*?\/>/gi, "[文件]");
+  } else {
+    // Simple placeholders (when native image capability exists)
+    text = text
+      .replace(/<img\b[^>]*?\/>/gi, "[图片]")
+      .replace(/<audio\b[^>]*?\/>/gi, "[语音]")
+      .replace(/<video\b[^>]*?\/>/gi, "[视频]")
+      .replace(/<file\b[^>]*?\/>/gi, "[文件]");
+  }
+
+  text = text
     // Mentions
     .replace(/<at\b[^>]*?id="([^"]*)"[^>]*?\/>/gi, "@$1")
     .replace(/<at\b[^>]*?\/>/gi, "@someone")
@@ -195,7 +233,9 @@ export async function handleSatoriEvent(
   }
 
   // ── Build content context ──────────────────────────────────────────────────
-  const bodyText = extractTextFromContent(message.content);
+  // Check if image capability is available to decide placeholder format
+  const preserveMediaUrls = !hasImageCapability(cfg);
+  const bodyText = extractTextFromContent(message.content, preserveMediaUrls);
   const allMedia = extractAllMedia(message.content);
   const mediaUrl = allMedia.length > 0 ? allMedia[0].url : undefined;
   const mediaType = allMedia.length > 0 ? allMedia[0].type : undefined;
