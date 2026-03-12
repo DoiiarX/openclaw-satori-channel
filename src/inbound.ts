@@ -50,12 +50,24 @@ function hasImageCapability(cfg: any): boolean {
  * human-readable placeholders.
  *
  * @param content - Satori message content with XML tags
- * @param preserveXml - If true, keep XML tags for MCP tool parsing (when no native image capability)
+ * @param includeUrls - If true, include URLs/paths in placeholders for MCP tool access
  */
-export function extractTextFromContent(content: string, preserveXml = false): string {
+export function extractTextFromContent(content: string, includeUrls = false): string {
   let text = content;
 
-  if (!preserveXml) {
+  if (includeUrls) {
+    // Include URLs/paths in placeholders for MCP tools (when no native image capability)
+    text = text
+      .replace(/<img\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[图片: $1]")
+      .replace(/<audio\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[语音: $1]")
+      .replace(/<video\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[视频: $1]")
+      .replace(/<file\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[文件: $1]")
+      // Fallback for media without src attribute
+      .replace(/<img\b[^>]*?\/>/gi, "[图片]")
+      .replace(/<audio\b[^>]*?\/>/gi, "[语音]")
+      .replace(/<video\b[^>]*?\/>/gi, "[视频]")
+      .replace(/<file\b[^>]*?\/>/gi, "[文件]");
+  } else {
     // Simple placeholders (when native image capability exists)
     text = text
       .replace(/<img\b[^>]*?\/>/gi, "[图片]")
@@ -63,7 +75,6 @@ export function extractTextFromContent(content: string, preserveXml = false): st
       .replace(/<video\b[^>]*?\/>/gi, "[视频]")
       .replace(/<file\b[^>]*?\/>/gi, "[文件]");
   }
-  // If preserveXml is true, keep the XML tags as-is (src will be replaced later)
 
   text = text
     // Mentions
@@ -145,11 +156,15 @@ async function downloadMedia(
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'");
 
-    // Create temp directory for Satori media
-    const tempDir = path.join(os.tmpdir(), "openclaw-satori-media");
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true, mode: 0o755 });
+    // Create media directory in OpenClaw workspace (accessible and secure)
+    const homeDir = os.homedir();
+    const mediaDir = path.join(homeDir, ".openclaw", "workspace", "satori-media");
+    if (!fs.existsSync(mediaDir)) {
+      fs.mkdirSync(mediaDir, { recursive: true, mode: 0o755 });
     }
+
+    // Sanitize filename to prevent path traversal attacks
+    const sanitizedFilename = `${crypto.randomUUID()}`;
 
     // Handle data URI (base64)
     if (decodedUrl.startsWith("data:")) {
@@ -161,8 +176,8 @@ async function downloadMedia(
 
       const [, mimeType, base64Data] = match;
       const ext = getExtensionFromMimeType(mimeType) || getDefaultExtension(type);
-      const filename = `${crypto.randomUUID()}${ext}`;
-      const filepath = path.join(tempDir, filename);
+      const filename = `${sanitizedFilename}${ext}`;
+      const filepath = path.join(mediaDir, filename);
 
       const buffer = Buffer.from(base64Data, "base64");
       fs.writeFileSync(filepath, buffer, { mode: 0o444 }); // Read-only
@@ -174,8 +189,8 @@ async function downloadMedia(
     if (decodedUrl.startsWith("http://") || decodedUrl.startsWith("https://")) {
       const urlObj = new URL(decodedUrl);
       const ext = path.extname(urlObj.pathname) || getDefaultExtension(type);
-      const filename = `${crypto.randomUUID()}${ext}`;
-      const filepath = path.join(tempDir, filename);
+      const filename = `${sanitizedFilename}${ext}`;
+      const filepath = path.join(mediaDir, filename);
 
       // Download file
       const response = await fetch(decodedUrl);
@@ -185,7 +200,7 @@ async function downloadMedia(
       }
 
       const buffer = await response.arrayBuffer();
-      fs.writeFileSync(filepath, Buffer.from(buffer), { mode: 0o444 }); // Read-only
+      fs.writeFileSync(filepath, Buffer.from(buffer), { mode: 0o444 }); // Read-only (no write/execute)
       log?.debug?.(`Downloaded ${decodedUrl} to ${filepath} (${buffer.byteLength} bytes)`);
       return filepath;
     }
@@ -342,7 +357,7 @@ export async function handleSatoriEvent(
 
   // ── Build content context ──────────────────────────────────────────────────
   // Check if image capability is available to decide format
-  const preserveXml = !hasImageCapability(cfg);
+  const includeUrls = !hasImageCapability(cfg);
   const allMedia = extractAllMedia(message.content);
   const mediaUrl = allMedia.length > 0 ? allMedia[0].url : undefined;
   const mediaType = allMedia.length > 0 ? allMedia[0].type : undefined;
@@ -377,7 +392,7 @@ export async function handleSatoriEvent(
 
   // ── Replace URLs with local paths in XML tags ─────────────────────────────
   let processedContent = message.content;
-  if (preserveXml && mediaPaths && mediaPaths.length > 0) {
+  if (includeUrls && mediaPaths && mediaPaths.length > 0) {
     // Replace src URLs with local paths in XML tags
     for (let i = 0; i < allMedia.length && i < mediaPaths.length; i++) {
       if (mediaPaths[i]) {
@@ -390,7 +405,7 @@ export async function handleSatoriEvent(
   }
 
   // ── Build body text ────────────────────────────────────────────────────────
-  const bodyText = extractTextFromContent(processedContent, preserveXml);
+  const bodyText = extractTextFromContent(processedContent, includeUrls);
 
   // ── Session key (agent-scoped, platform-aware) ─────────────────────────────
   // Format: agent:main:satori-channel:{platform}:{direct|group}:{peerId}
