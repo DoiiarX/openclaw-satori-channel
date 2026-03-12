@@ -137,6 +137,14 @@ async function downloadMedia(
   log?: { debug?: (msg: string) => void; error?: (msg: string) => void }
 ): Promise<string | undefined> {
   try {
+    // Decode HTML entities in URL (e.g., &amp; -> &)
+    const decodedUrl = url
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+
     // Create temp directory for Satori media
     const tempDir = path.join(os.tmpdir(), "openclaw-satori-media");
     if (!fs.existsSync(tempDir)) {
@@ -144,8 +152,8 @@ async function downloadMedia(
     }
 
     // Handle data URI (base64)
-    if (url.startsWith("data:")) {
-      const match = /^data:([^;]+);base64,(.+)$/.exec(url);
+    if (decodedUrl.startsWith("data:")) {
+      const match = /^data:([^;]+);base64,(.+)$/.exec(decodedUrl);
       if (!match) {
         log?.error?.("Invalid data URI format");
         return undefined;
@@ -163,26 +171,26 @@ async function downloadMedia(
     }
 
     // Handle HTTP(S) URL
-    if (url.startsWith("http://") || url.startsWith("https://")) {
-      const urlObj = new URL(url);
+    if (decodedUrl.startsWith("http://") || decodedUrl.startsWith("https://")) {
+      const urlObj = new URL(decodedUrl);
       const ext = path.extname(urlObj.pathname) || getDefaultExtension(type);
       const filename = `${crypto.randomUUID()}${ext}`;
       const filepath = path.join(tempDir, filename);
 
       // Download file
-      const response = await fetch(url);
+      const response = await fetch(decodedUrl);
       if (!response.ok) {
-        log?.error?.(`Failed to download ${url}: ${response.status}`);
+        log?.error?.(`Failed to download ${decodedUrl}: ${response.status}`);
         return undefined;
       }
 
       const buffer = await response.arrayBuffer();
       fs.writeFileSync(filepath, Buffer.from(buffer), { mode: 0o444 }); // Read-only
-      log?.debug?.(`Downloaded ${url} to ${filepath} (${buffer.byteLength} bytes)`);
+      log?.debug?.(`Downloaded ${decodedUrl} to ${filepath} (${buffer.byteLength} bytes)`);
       return filepath;
     }
 
-    log?.error?.(`Unsupported URL scheme: ${url}`);
+    log?.error?.(`Unsupported URL scheme: ${decodedUrl}`);
     return undefined;
   } catch (err) {
     log?.error?.(`Media download error: ${err instanceof Error ? err.message : String(err)}`);
@@ -346,8 +354,13 @@ export async function handleSatoriEvent(
   let mediaPaths: string[] | undefined;
 
   if (allMedia.length > 0) {
+    log?.debug?.(`[satori:${accountId}] Attempting to download ${allMedia.length} media file(s)`);
+
     // Download first media (for MediaPath)
     mediaPath = await downloadMedia(allMedia[0].url, allMedia[0].type, log);
+    if (!mediaPath) {
+      log?.warn?.(`[satori:${accountId}] Failed to download primary media, will use URL fallback`);
+    }
 
     // Download all media (for MediaPaths)
     const downloadPromises = allMedia.map(m => downloadMedia(m.url, m.type, log));
@@ -355,7 +368,10 @@ export async function handleSatoriEvent(
     mediaPaths = downloadedPaths.filter((p): p is string => p !== undefined);
 
     if (mediaPaths.length === 0) {
+      log?.warn?.(`[satori:${accountId}] All media downloads failed, message will use original URLs`);
       mediaPaths = undefined;
+    } else if (mediaPaths.length < allMedia.length) {
+      log?.warn?.(`[satori:${accountId}] ${allMedia.length - mediaPaths.length} media download(s) failed`);
     }
   }
 
