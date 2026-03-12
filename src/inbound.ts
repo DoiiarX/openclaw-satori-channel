@@ -21,11 +21,16 @@ interface MsgContext {
 /**
  * Strip Satori XML-like element tags to produce plain text suitable for the
  * agent prompt.  Rich elements (images, audio, video) are replaced with
- * human-readable placeholders; mention tags are expanded to @<id>.
+ * human-readable placeholders that include the URL for MCP tool access.
  */
 export function extractTextFromContent(content: string): string {
   let text = content
-    // Media elements → readable placeholders
+    // Media elements → readable placeholders with URLs for MCP tools
+    .replace(/<img\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[图片: $1]")
+    .replace(/<audio\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[语音: $1]")
+    .replace(/<video\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[视频: $1]")
+    .replace(/<file\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[文件: $1]")
+    // Fallback for media without src attribute
     .replace(/<img\b[^>]*?\/>/gi, "[图片]")
     .replace(/<audio\b[^>]*?\/>/gi, "[语音]")
     .replace(/<video\b[^>]*?\/>/gi, "[视频]")
