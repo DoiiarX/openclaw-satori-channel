@@ -438,6 +438,13 @@ export async function handleSatoriEvent(
     }
   }
 
+  // ── Compute CommandAuthorized (for context only, does not bypass requireMention) ──
+  const allowFrom = account.allowFrom ?? [];
+  const commandAuthorized =
+    allowFrom.includes("*") ||
+    allowFrom.includes(senderId) ||
+    allowFrom.some(id => String(id) === senderId);
+
   // ── Construct MsgContext ───────────────────────────────────────────────────
   const msgCtx: MsgContext = {
     Body: bodyText,
