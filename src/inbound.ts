@@ -50,24 +50,12 @@ function hasImageCapability(cfg: any): boolean {
  * human-readable placeholders.
  *
  * @param content - Satori message content with XML tags
- * @param preserveUrls - If true, include URLs in placeholders for MCP tool access
+ * @param preserveXml - If true, keep XML tags for MCP tool parsing (when no native image capability)
  */
-export function extractTextFromContent(content: string, preserveUrls = false): string {
+export function extractTextFromContent(content: string, preserveXml = false): string {
   let text = content;
 
-  if (preserveUrls) {
-    // Include URLs in placeholders for MCP tools (when no native image capability)
-    text = text
-      .replace(/<img\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[图片: $1]")
-      .replace(/<audio\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[语音: $1]")
-      .replace(/<video\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[视频: $1]")
-      .replace(/<file\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, "[文件: $1]")
-      // Fallback for media without src attribute
-      .replace(/<img\b[^>]*?\/>/gi, "[图片]")
-      .replace(/<audio\b[^>]*?\/>/gi, "[语音]")
-      .replace(/<video\b[^>]*?\/>/gi, "[视频]")
-      .replace(/<file\b[^>]*?\/>/gi, "[文件]");
-  } else {
+  if (!preserveXml) {
     // Simple placeholders (when native image capability exists)
     text = text
       .replace(/<img\b[^>]*?\/>/gi, "[图片]")
@@ -75,6 +63,7 @@ export function extractTextFromContent(content: string, preserveUrls = false): s
       .replace(/<video\b[^>]*?\/>/gi, "[视频]")
       .replace(/<file\b[^>]*?\/>/gi, "[文件]");
   }
+  // If preserveXml is true, keep the XML tags as-is (src will be replaced later)
 
   text = text
     // Mentions
@@ -344,8 +333,8 @@ export async function handleSatoriEvent(
   }
 
   // ── Build content context ──────────────────────────────────────────────────
-  // Check if image capability is available to decide placeholder format
-  const preserveMediaUrls = !hasImageCapability(cfg);
+  // Check if image capability is available to decide format
+  const preserveXml = !hasImageCapability(cfg);
   const allMedia = extractAllMedia(message.content);
   const mediaUrl = allMedia.length > 0 ? allMedia[0].url : undefined;
   const mediaType = allMedia.length > 0 ? allMedia[0].type : undefined;
@@ -370,18 +359,22 @@ export async function handleSatoriEvent(
     }
   }
 
-  // ── Build body text with local paths if available ─────────────────────────
-  let bodyText = extractTextFromContent(message.content, preserveMediaUrls);
-
-  // Replace URLs with local paths in placeholders when media was downloaded
-  if (preserveMediaUrls && mediaPaths && mediaPaths.length > 0) {
+  // ── Replace URLs with local paths in XML tags ─────────────────────────────
+  let processedContent = message.content;
+  if (preserveXml && mediaPaths && mediaPaths.length > 0) {
+    // Replace src URLs with local paths in XML tags
     for (let i = 0; i < allMedia.length && i < mediaPaths.length; i++) {
       if (mediaPaths[i]) {
-        // Replace URL with local path in the body text
-        bodyText = bodyText.replace(allMedia[i].url, mediaPaths[i]);
+        // Escape special regex characters in URL
+        const urlEscaped = allMedia[i].url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`src="${urlEscaped}"`, 'g');
+        processedContent = processedContent.replace(regex, `src="${mediaPaths[i]}"`);
       }
     }
   }
+
+  // ── Build body text ────────────────────────────────────────────────────────
+  const bodyText = extractTextFromContent(processedContent, preserveXml);
 
   // ── Session key (agent-scoped, platform-aware) ─────────────────────────────
   // Format: agent:main:satori-channel:{platform}:{direct|group}:{peerId}
