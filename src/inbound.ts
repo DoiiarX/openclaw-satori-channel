@@ -53,19 +53,36 @@ export function extractTextFromContent(content: string): string {
   return text.trim();
 }
 
+/** Media information extracted from Satori content */
+type MediaInfo = {
+  url: string;
+  type: "image" | "audio" | "video" | "file";
+};
+
+/** Extract all media URLs and types from a Satori message content string. */
+function extractAllMedia(content: string): MediaInfo[] {
+  const media: MediaInfo[] = [];
+  const patterns: Array<{ regex: RegExp; type: MediaInfo["type"] }> = [
+    { regex: /<img\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, type: "image" },
+    { regex: /<audio\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, type: "audio" },
+    { regex: /<video\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, type: "video" },
+    { regex: /<file\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/gi, type: "file" },
+  ];
+
+  for (const { regex, type } of patterns) {
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(content)) !== null) {
+      media.push({ url: match[1], type });
+    }
+  }
+
+  return media;
+}
+
 /** Extract the first media URL found in a Satori message content string. */
 function extractMediaUrl(content: string): string | undefined {
-  const patterns = [
-    /<img\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/i,
-    /<audio\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/i,
-    /<video\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/i,
-    /<file\b[^>]*?\bsrc="([^"]+)"[^>]*?\/>/i,
-  ];
-  for (const re of patterns) {
-    const m = re.exec(content);
-    if (m) return m[1];
-  }
-  return undefined;
+  const media = extractAllMedia(content);
+  return media.length > 0 ? media[0].url : undefined;
 }
 
 // ─── HTTP helper ───────────────────────────────────────────────────────────────
@@ -174,7 +191,11 @@ export async function handleSatoriEvent(
 
   // ── Build content context ──────────────────────────────────────────────────
   const bodyText = extractTextFromContent(message.content);
-  const mediaUrl = extractMediaUrl(message.content);
+  const allMedia = extractAllMedia(message.content);
+  const mediaUrl = allMedia.length > 0 ? allMedia[0].url : undefined;
+  const mediaType = allMedia.length > 0 ? allMedia[0].type : undefined;
+  const mediaUrls = allMedia.length > 0 ? allMedia.map(m => m.url) : undefined;
+  const mediaTypes = allMedia.length > 0 ? allMedia.map(m => m.type) : undefined;
 
   // ── Session key (agent-scoped, platform-aware) ─────────────────────────────
   // Format: agent:main:satori-channel:{platform}:{direct|group}:{peerId}
@@ -231,6 +252,9 @@ export async function handleSatoriEvent(
     SenderId: senderId,
     SenderName: senderName,
     ...(mediaUrl ? { MediaUrl: mediaUrl } : {}),
+    ...(mediaType ? { MediaType: mediaType } : {}),
+    ...(mediaUrls ? { MediaUrls: mediaUrls } : {}),
+    ...(mediaTypes ? { MediaTypes: mediaTypes } : {}),
     ...(replyToId ? { ReplyToId: replyToId } : {}),
     ...(replyToBody ? { ReplyToBody: replyToBody } : {}),
     ...(replyToSender ? { ReplyToSender: replyToSender } : {}),

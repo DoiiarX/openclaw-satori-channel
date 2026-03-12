@@ -42,10 +42,10 @@ function resolveChannelId(params: Record<string, unknown>): string {
 export const satoriMessageActions: ChannelMessageActionAdapter = {
   listActions: ({ cfg }): ChannelMessageActionName[] => {
     const gate = createActionGate(getActionsConfig(cfg));
-    const id = satoriConfigAdapter.defaultAccountId(cfg);
+    const id = satoriConfigAdapter.defaultAccountId?.(cfg);
     // Helper: config gate AND platform feature support
     const supported = (configKey: keyof ReturnType<typeof getActionsConfig>, ...features: string[]) =>
-      gate(configKey, true) && features.every(f => hasFeature(id, f));
+      gate(configKey, true) && (id ? features.every(f => hasFeature(id, f)) : false);
 
     const actions = new Set<ChannelMessageActionName>(["send"]);
 
@@ -67,7 +67,7 @@ export const satoriMessageActions: ChannelMessageActionAdapter = {
     // Channel/guild info
     if (supported("channelInfo", "channel.get")) actions.add("channel-info");
     // channel-list falls back to guild.list, so require either
-    if (gate("channelInfo", true) && (hasFeature(id, "channel.list") || hasFeature(id, "guild.list"))) {
+    if (gate("channelInfo", true) && id && (hasFeature(id, "channel.list") || hasFeature(id, "guild.list"))) {
       actions.add("channel-list");
     }
 
