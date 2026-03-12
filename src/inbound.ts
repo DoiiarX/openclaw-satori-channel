@@ -1,5 +1,9 @@
 import type { ChannelGatewayContext } from "openclaw/plugin-sdk";
 import type { SatoriAccount, SatoriEvent } from "./types.js";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
+import * as crypto from "node:crypto";
 
 // Local simplified types (avoid internal SDK dependencies)
 interface InboundMessage {
@@ -128,6 +132,113 @@ function extractMediaUrl(content: string): string | undefined {
   return media.length > 0 ? media[0].url : undefined;
 }
 
+// ─── Media download ────────────────────────────────────────────────────────────
+
+/**
+ * Download media from URL to a temporary directory with read-only permissions.
+ * Supports both HTTP(S) URLs and data URIs (base64).
+ *
+ * @param url - Media URL or data URI
+ * @param type - Media type (image/audio/video/file)
+ * @returns Local file path or undefined on failure
+ */
+async function downloadMedia(
+  url: string,
+  type: string,
+  log?: { debug?: (msg: string) => void; error?: (msg: string) => void }
+): Promise<string | undefined> {
+  try {
+    // Create temp directory for Satori media
+    const tempDir = path.join(os.tmpdir(), "openclaw-satori-media");
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true, mode: 0o755 });
+    }
+
+    // Handle data URI (base64)
+    if (url.startsWith("data:")) {
+      const match = /^data:([^;]+);base64,(.+)$/.exec(url);
+      if (!match) {
+        log?.error?.("Invalid data URI format");
+        return undefined;
+      }
+
+      const [, mimeType, base64Data] = match;
+      const ext = getExtensionFromMimeType(mimeType) || getDefaultExtension(type);
+      const filename = `${crypto.randomUUID()}${ext}`;
+      const filepath = path.join(tempDir, filename);
+
+      const buffer = Buffer.from(base64Data, "base64");
+      fs.writeFileSync(filepath, buffer, { mode: 0o444 }); // Read-only
+      log?.debug?.(`Downloaded data URI to ${filepath} (${buffer.length} bytes)`);
+      return filepath;
+    }
+
+    // Handle HTTP(S) URL
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      const urlObj = new URL(url);
+      const ext = path.extname(urlObj.pathname) || getDefaultExtension(type);
+      const filename = `${crypto.randomUUID()}${ext}`;
+      const filepath = path.join(tempDir, filename);
+
+      // Download file
+      const response = await fetch(url);
+      if (!response.ok) {
+        log?.error?.(`Failed to download ${url}: ${response.status}`);
+        return undefined;
+      }
+
+      const buffer = await response.arrayBuffer();
+      fs.writeFileSync(filepath, Buffer.from(buffer), { mode: 0o444 }); // Read-only
+      log?.debug?.(`Downloaded ${url} to ${filepath} (${buffer.byteLength} bytes)`);
+      return filepath;
+    }
+
+    log?.error?.(`Unsupported URL scheme: ${url}`);
+    return undefined;
+  } catch (err) {
+    log?.error?.(`Media download error: ${err instanceof Error ? err.message : String(err)}`);
+    return undefined;
+  }
+}
+
+/**
+ * Get file extension from MIME type
+ */
+function getExtensionFromMimeType(mimeType: string): string | undefined {
+  const map: Record<string, string> = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/svg+xml": ".svg",
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/ogg": ".ogg",
+    "audio/wav": ".wav",
+    "audio/webm": ".webm",
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "video/ogg": ".ogv",
+    "application/pdf": ".pdf",
+  };
+  return map[mimeType.toLowerCase()];
+}
+
+/**
+ * Get default extension based on media type
+ */
+function getDefaultExtension(type: string): string {
+  const map: Record<string, string> = {
+    image: ".jpg",
+    audio: ".mp3",
+    video: ".mp4",
+    file: ".bin",
+  };
+  return map[type] || ".bin";
+}
+
+
 // ─── HTTP helper ───────────────────────────────────────────────────────────────
 
 function buildApiHeaders(
@@ -242,6 +353,24 @@ export async function handleSatoriEvent(
   const mediaUrls = allMedia.length > 0 ? allMedia.map(m => m.url) : undefined;
   const mediaTypes = allMedia.length > 0 ? allMedia.map(m => m.type) : undefined;
 
+  // ── Download media to local temp directory ────────────────────────────────
+  let mediaPath: string | undefined;
+  let mediaPaths: string[] | undefined;
+
+  if (allMedia.length > 0) {
+    // Download first media (for MediaPath)
+    mediaPath = await downloadMedia(allMedia[0].url, allMedia[0].type, log);
+
+    // Download all media (for MediaPaths)
+    const downloadPromises = allMedia.map(m => downloadMedia(m.url, m.type, log));
+    const downloadedPaths = await Promise.all(downloadPromises);
+    mediaPaths = downloadedPaths.filter((p): p is string => p !== undefined);
+
+    if (mediaPaths.length === 0) {
+      mediaPaths = undefined;
+    }
+  }
+
   // ── Session key (agent-scoped, platform-aware) ─────────────────────────────
   // Format: agent:main:satori-channel:{platform}:{direct|group}:{peerId}
   // The platform segment (e.g. "onebot", "telegram") disambiguates accounts
@@ -300,6 +429,8 @@ export async function handleSatoriEvent(
     ...(mediaType ? { MediaType: mediaType } : {}),
     ...(mediaUrls ? { MediaUrls: mediaUrls } : {}),
     ...(mediaTypes ? { MediaTypes: mediaTypes } : {}),
+    ...(mediaPath ? { MediaPath: mediaPath } : {}),
+    ...(mediaPaths ? { MediaPaths: mediaPaths } : {}),
     ...(replyToId ? { ReplyToId: replyToId } : {}),
     ...(replyToBody ? { ReplyToBody: replyToBody } : {}),
     ...(replyToSender ? { ReplyToSender: replyToSender } : {}),
