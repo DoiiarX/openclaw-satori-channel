@@ -424,21 +424,15 @@ export async function handleSatoriEvent(
   const replyToSender = quote?.user?.name ?? quote?.user?.id;
 
   // ── Gate 3: requireMention (groups only) ──────────────────────────────────
-  // Compute CommandAuthorized before mention check so authorized senders bypass it
-  // Uses allowFrom (sender IDs), not groupAllowFrom (group/channel IDs)
-  const allowFrom = account.allowFrom ?? [];
-  const commandAuthorized =
-    allowFrom.includes("*") ||
-    allowFrom.includes(senderId) ||
-    allowFrom.some(id => String(id) === senderId);
-
+  // In groups, requireMention applies to everyone (no bypass for allowFrom users)
+  // allowFrom is only for private chat access control (Gate 1)
   if (!isDirect && account.requireMention) {
     const selfId = account.selfId;
     const wasMentioned = selfId
       ? /<at\b[^>]*?id="([^"]*)"[^>]*?\/>/gi.test(message.content ?? "") &&
         new RegExp(`<at\\b[^>]*?id="${selfId}"[^>]*?\\/>`, "i").test(message.content ?? "")
       : false;
-    if (!wasMentioned && !commandAuthorized) {
+    if (!wasMentioned) {
       log?.debug?.(`[satori:${accountId}] Group message dropped: requireMention=true, not mentioned`);
       return;
     }
